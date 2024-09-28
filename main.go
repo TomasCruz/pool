@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"context"
 	"errors"
 	"sync"
 )
@@ -77,23 +78,30 @@ func (wp *WorkerPool) AddTask(task Task) error {
 	return nil
 }
 
-func (wp *WorkerPool) Run() {
+func (wp *WorkerPool) Run(ctx context.Context) {
 	wp.start.Do(func() {
 		wp.started = true
-		wp.startWorkers()
+		wp.startWorkers(ctx)
 	})
 }
 
-func (wp *WorkerPool) worker() {
+func (wp *WorkerPool) worker(ctx context.Context) {
 	for t := range wp.tasks {
-		t.Res, t.Err = t.F(t.Arg)
-		wp.results <- t
+		select {
+		case <-ctx.Done():
+			wp.workersDone <- struct{}{}
+			return
+		default:
+			t.Res, t.Err = t.F(t.Arg)
+			wp.results <- t
+		}
 	}
+
 	wp.workersDone <- struct{}{}
 }
 
-func (wp *WorkerPool) startWorkers() {
+func (wp *WorkerPool) startWorkers(ctx context.Context) {
 	for i := 0; i < wp.noWorkers; i++ {
-		go wp.worker()
+		go wp.worker(ctx)
 	}
 }

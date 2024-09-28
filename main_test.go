@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"context"
 	"errors"
 	"testing"
 )
@@ -27,8 +28,8 @@ func TestWorkerPool_MultipleStartStopDontPanic(t *testing.T) {
 
 	// We're just checking to make sure multiple calls to start or stop
 	// don't cause a panic
-	wp.Run()
-	wp.Run()
+	wp.Run(context.TODO())
+	wp.Run(context.TODO())
 }
 
 func sillyFunc(xInterface interface{}) (interface{}, error) {
@@ -59,7 +60,11 @@ func TestWorkerPool_Work(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error making worker pool: %v", err)
 	}
-	wp.Run()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wp.Run(ctx)
 
 	for _, t := range tasks {
 		wp.AddTask(t)
