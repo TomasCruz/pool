@@ -5,32 +5,34 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestWorkerPool_NewPool(t *testing.T) {
-	if _, err := NewWorkerPool(0, 2); err != ErrBadParam {
+	if _, err := NewWorkerPool(0); err != ErrBadParam {
 		t.Fatalf("expected error when creating pool with 0 workers, got: %v", err)
 	}
 
-	if _, err := NewWorkerPool(11, 2); err != ErrBadParam {
-		t.Fatalf("expected error when creating pool with 11 workers, got: %v", err)
-	}
-
-	if _, err := NewWorkerPool(-1, 2); err != ErrBadParam {
+	if _, err := NewWorkerPool(-1); err != ErrBadParam {
 		t.Fatalf("expected error when creating pool with -1 channel size, got: %v", err)
 	}
 }
 
 func TestWorkerPool_MultipleStartStopDontPanic(t *testing.T) {
-	wp, err := NewWorkerPool(5, 5)
+	wp, err := NewWorkerPool(5)
 	if err != nil {
 		t.Fatalf("error creating pool: %v", err)
 	}
 
 	// We're just checking to make sure multiple calls to start or stop
 	// don't cause a panic
-	wp.Run(context.TODO())
-	wp.Run(context.TODO())
+	ctx, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+	defer cancel()
+
+	wp.Run(ctx)
+	wp.Run(ctx)
+	wp.Stop()
+	wp.Stop()
 }
 
 func sillyFunc(xAny any) (any, error) {
@@ -50,34 +52,27 @@ func sillyFunc(xAny any) (any, error) {
 func TestWorkerPool_Work(t *testing.T) {
 	var tasks []Task
 
-	taskNumber := 12
-	startFrom := int64(800000000)
+	taskNumber := 200
+	startFrom := int64(40000000)
 
-	for i := 0; i < taskNumber; i++ {
+	for i := range taskNumber {
 		tasks = append(tasks, Task{F: sillyFunc, Arg: startFrom + int64(i)})
 	}
 
-	wp, err := NewWorkerPool(4, taskNumber)
+	wp, err := NewWorkerPool(6)
 	if err != nil {
 		t.Fatalf("error making worker pool: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 1000*time.Millisecond)
 	defer cancel()
 
 	wp.Run(ctx)
-
-	for _, t := range tasks {
-		wp.AddTask(t)
-	}
+	wp.AddTasks(tasks)
 
 	resChannel, err := wp.Results()
 	if err != nil {
 		t.Fatalf("error fetching worker pool results: %v", err)
-	}
-
-	if len(resChannel) != taskNumber {
-		t.Fatalf("resChannel length wrong: %v", len(resChannel))
 	}
 
 	for t := range resChannel {
