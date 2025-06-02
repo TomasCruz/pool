@@ -12,12 +12,12 @@ var (
 	ErrPoolNotStarted = errors.New("pool not started")
 )
 
-type TaskFunc func(interface{}) (interface{}, error)
+type TaskFunc func(any) (any, error)
 
 type Task struct {
 	F   TaskFunc
-	Arg interface{}
-	Res interface{}
+	Arg any
+	Res any
 	Err error
 }
 

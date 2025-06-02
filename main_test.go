@@ -3,6 +3,7 @@ package pool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -32,9 +33,9 @@ func TestWorkerPool_MultipleStartStopDontPanic(t *testing.T) {
 	wp.Run(context.TODO())
 }
 
-func sillyFunc(xInterface interface{}) (interface{}, error) {
+func sillyFunc(xAny any) (any, error) {
 	sum := int64(0)
-	x := xInterface.(int64)
+	x := xAny.(int64)
 	for i := int64(1); i <= x; i++ {
 		sum += i
 	}
@@ -50,7 +51,7 @@ func TestWorkerPool_Work(t *testing.T) {
 	var tasks []Task
 
 	taskNumber := 12
-	startFrom := int64(400000000)
+	startFrom := int64(800000000)
 
 	for i := 0; i < taskNumber; i++ {
 		tasks = append(tasks, Task{F: sillyFunc, Arg: startFrom + int64(i)})
@@ -79,14 +80,14 @@ func TestWorkerPool_Work(t *testing.T) {
 		t.Fatalf("resChannel length wrong: %v", len(resChannel))
 	}
 
-	// for t := range resChannel {
-	// 	arg := t.Arg.(int64)
-	// 	res := t.Res.(int64)
-	// 	errString := ""
-	// 	if t.Err != nil {
-	// 		errString = t.Err.Error()
-	// 	}
+	for t := range resChannel {
+		arg := t.Arg.(int64)
+		res := t.Res.(int64)
+		errString := ""
+		if t.Err != nil {
+			errString = t.Err.Error()
+		}
 
-	// 	fmt.Printf("%d -> (%d, %s)\n", arg, res, errString)
-	// }
+		fmt.Printf("%d -> (%d, %s)\n", arg, res, errString)
+	}
 }
